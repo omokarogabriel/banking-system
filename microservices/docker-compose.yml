@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: banking-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: banking_system
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - banking-network
+
+  service-discovery:
+    build: ./service-discovery
+    container_name: service-discovery
+    ports:
+      - "8761:8761"
+    networks:
+      - banking-network
+
+  account-service:
+    build: ./account-service
+    container_name: account-service
+    environment:
+      DB_USERNAME: root
+      DB_PASSWORD: password
+    depends_on:
+      - mysql
+      - service-discovery
+    ports:
+      - "8081:8081"
+    networks:
+      - banking-network
+
+  transaction-service:
+    build: ./transaction-service
+    container_name: transaction-service
+    environment:
+      DB_USERNAME: root
+      DB_PASSWORD: password
+    depends_on:
+      - mysql
+      - service-discovery
+      - account-service
+    ports:
+      - "8082:8082"
+    networks:
+      - banking-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      - service-discovery
+    ports:
+      - "8083:8083"
+    networks:
+      - banking-network
+
+  audit-service:
+    build: ./audit-service
+    container_name: audit-service
+    environment:
+      DB_USERNAME: root
+      DB_PASSWORD: password
+    depends_on:
+      - mysql
+      - service-discovery
+    ports:
+      - "8084:8084"
+    networks:
+      - banking-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    depends_on:
+      - service-discovery
+      - account-service
+      - transaction-service
+      - audit-service
+    ports:
+      - "8080:8080"
+    networks:
+      - banking-network
+
+volumes:
+  mysql_data:
+
+networks:
+  banking-network:
+    driver: bridge
