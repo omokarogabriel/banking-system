@@ -16,6 +16,7 @@ This directory contains Terraform configuration to deploy the banking system on 
 - AWS CLI configured
 - Terraform installed
 - Docker installed
+- Node.js (for webapp dependencies)
 
 ## Deployment Steps
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import CreateAccount from './components/CreateAccount';
 import BalanceCheck from './components/BalanceCheck';
 import Transaction from './components/Transaction';
+import Transfer from './components/Transfer';
 import './App.css';
 
 function App() {
@@ -36,6 +37,12 @@ function App() {
           >
             Withdraw
           </button>
+          <button 
+            className={activeTab === 'transfer' ? 'active' : ''}
+            onClick={() => setActiveTab('transfer')}
+          >
+            Transfer
+          </button>
         </nav>
       </header>
       
@@ -44,6 +51,7 @@ function App() {
         {activeTab === 'balance' && <BalanceCheck />}
         {activeTab === 'deposit' && <Transaction type="deposit" />}
         {activeTab === 'withdraw' && <Transaction type="withdraw" />}
+        {activeTab === 'transfer' && <Transfer />}
       </main>
     </div>
   );

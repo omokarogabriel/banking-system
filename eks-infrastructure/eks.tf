@@ -60,15 +60,100 @@ resource "aws_security_group" "eks_cluster_sg" {
   description = "Security group for EKS cluster"
   vpc_id      = aws_vpc.banking_vpc.id
 
+  # HTTPS API server access
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.banking_vpc.cidr_block]
+  }
+
+  # Node to cluster API server
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eks_node_sg.id]
+  }
+
+  # Restricted egress
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS outbound"
+  }
+
+  egress {
+    from_port       = 1025
+    to_port         = 65535
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eks_node_sg.id]
+    description     = "Node communication"
   }
 
   tags = {
     Name = "banking-eks-cluster-sg"
+  }
+}
+
+# Security Group for EKS Nodes
+resource "aws_security_group" "eks_node_sg" {
+  name        = "banking-eks-node-sg"
+  description = "Security group for EKS nodes"
+  vpc_id      = aws_vpc.banking_vpc.id
+
+  # Node to node communication
+  ingress {
+    from_port = 0
+    to_port   = 65535
+    protocol  = "tcp"
+    self      = true
+  }
+
+  # Cluster to node communication
+  ingress {
+    from_port       = 1025
+    to_port         = 65535
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eks_cluster_sg.id]
+  }
+
+  # HTTPS outbound
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP outbound for package downloads
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS
+  egress {
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # NTP
+  egress {
+    from_port   = 123
+    to_port     = 123
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "banking-eks-node-sg"
   }
 }
 

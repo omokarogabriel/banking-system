@@ -4,8 +4,11 @@ server:
 spring:
   application:
     name: transaction-service
+  cloud:
+    compatibility-verifier:
+      enabled: false
   datasource:
-    url: jdbc:mysql://localhost:3306/banking_transactions?createDatabaseIfNotExist=true
+    url: jdbc:mysql://mysql:3306/banking_system?createDatabaseIfNotExist=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:password}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -20,7 +23,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://service-discovery:8761/eureka/
   instance:
     prefer-ip-address: true
 

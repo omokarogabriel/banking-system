@@ -18,6 +18,7 @@ This directory contains Terraform configuration to deploy the banking system on 
 - Terraform installed
 - kubectl installed
 - Docker installed
+- Node.js (for webapp dependencies)
 
 ## Deployment Steps
 

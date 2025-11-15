@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banking System - API Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .result-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .result-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        pre {
+            background: #2d3748;
+            color: #68d391;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #0c5460;
+            font-size: 14px;
+        }
+        .info-box strong {
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Banking System - API Test</h1>
+        <p class="subtitle">Test the Banking API endpoints with different phone number formats</p>
+        
+        <div class="info-box">
+            <p><strong>API Endpoint:</strong> http://localhost:8080/api/accounts</p>
+            <p><strong>Supported Phone Formats:</strong></p>
+            <p>• International: +1234567890</p>
+            <p>• Nigerian: 08130262842</p>
+            <p>• Standard: 1234567890</p>
+        </div>
+
+        <div class="button-group">
+            <button onclick="testAPI()">🌍 Test International Format</button>
+            <button onclick="testAPINigerian()">🇳🇬 Test Nigerian Format</button>
+            <button onclick="testAPIStandard()">📞 Test Standard Format</button>
+            <button onclick="testGetAccounts()">📋 Get All Accounts</button>
+            <button onclick="testHealth()">❤️ Health Check</button>
+            <button onclick="clearResult()">🧹 Clear Results</button>
+        </div>
+
+        <div class="result-container" id="resultContainer" style="display: none;">
+            <div class="result-header">
+                <span class="result-title">Response:</span>
+                <span class="status-badge" id="statusBadge">Loading...</span>
+            </div>
+            <pre id="result"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8080';
+        
+        function showResult(status, data) {
+            const container = document.getElementById('resultContainer');
+            const result = document.getElementById('result');
+            const badge = document.getElementById('statusBadge');
+            
+            container.style.display = 'block';
+            result.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+            
+            badge.className = 'status-badge';
+            if (status === 'success') {
+                badge.classList.add('status-success');
+                badge.textContent = '✅ Success';
+            } else if (status === 'error') {
+                badge.classList.add('status-error');
+                badge.textContent = '❌ Error';
+            } else {
+                badge.classList.add('status-loading');
+                badge.textContent = '⏳ Loading...';
+            }
+        }
+        
+        function disableButtons(disabled) {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = disabled);
+        }
+        
+        async function makeRequest(method, endpoint, body = null) {
+            showResult('loading', 'Sending request...');
+            disableButtons(true);
+            
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('success', data);
+                } else {
+                    showResult('error', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        error: data
+                    });
+                }
+            } catch (error) {
+                showResult('error', {
+                    error: 'Network Error',
+                    message: error.message,
+                    details: 'Make sure the API server is running at ' + API_BASE_URL
+                });
+            } finally {
+                disableButtons(false);
+            }
+        }
+        
+        async function testAPI() {
+            const timestamp = Date.now();
+            await makeRequest('POST', '/api/accounts', {
+                firstName: 'John',
+                lastName: 'Doe',
+                gender: 'Male',
+                address: '123 Main Street, New York',
+                email: `john.doe.${timestamp}@example.com`,
+                phoneNumber: '+1234567890',
+                stateOfOrigin: 'New York'
+            });
+        }
+        
+        async function testAPINigerian() {
+            const timestamp = Date.now();
+            await makeRequest('POST', '/api/accounts', {
+                firstName: 'Adebayo',
+                lastName: 'Okonkwo',
+                gender: 'Male',
+                address: '45 Victoria Island, Lagos',
+                email: `adebayo.${timestamp}@example.com`,
+                phoneNumber: '08130262842',
+                stateOfOrigin: 'Lagos'
+            });
+        }
+        
+        async function testAPIStandard() {
+            const timestamp = Date.now();
+            await makeRequest('POST', '/api/accounts', {
+                firstName: 'Jane',
+                lastName: 'Smith',
+                gender: 'Female',
+                address: '789 Oak Avenue, California',
+                email: `jane.smith.${timestamp}@example.com`,
+                phoneNumber: '9876543210',
+                stateOfOrigin: 'California'
+            });
+        }
+        
+        async function testGetAccounts() {
+            await makeRequest('GET', '/api/accounts');
+        }
+        
+        async function testHealth() {
+            showResult('loading', 'Checking health...');
+            disableButtons(true);
+            
+            try {
+                const services = [
+                    { name: 'API Gateway', url: `${API_BASE_URL}/actuator/health` },
+                    { name: 'Account Service', url: 'http://localhost:8081/actuator/health' },
+                    { name: 'Transaction Service', url: 'http://localhost:8082/actuator/health' },
+                    { name: 'Service Discovery', url: 'http://localhost:8761/actuator/health' }
+                ];
+                
+                const results = await Promise.all(
+                    services.map(async (service) => {
+                        try {
+                            const response = await fetch(service.url);
+                            const data = await response.json();
+                            return {
+                                service: service.name,
+                                status: data.status || 'UNKNOWN',
+                                healthy: response.ok
+                            };
+                        } catch (error) {
+                            return {
+                                service: service.name,
+                                status: 'DOWN',
+                                healthy: false,
+                                error: error.message
+                            };
+                        }
+                    })
+                );
+                
+                const allHealthy = results.every(r => r.healthy);
+                showResult(allHealthy ? 'success' : 'error', {
+                    timestamp: new Date().toISOString(),
+                    overall: allHealthy ? 'HEALTHY' : 'UNHEALTHY',
+                    services: results
+                });
+            } catch (error) {
+                showResult('error', {
+                    error: 'Health Check Failed',
+                    message: error.message
+                });
+            } finally {
+                disableButtons(false);
+            }
+        }
+        
+        function clearResult() {
+            const container = document.getElementById('resultContainer');
+            container.style.display = 'none';
+        }
+        
+        // Show welcome message on load
+        window.addEventListener('load', () => {
+            showResult('success', {
+                message: 'Banking System API Test Tool',
+                version: '1.0.0',
+                instructions: 'Click any button above to test the API endpoints',
+                apiUrl: API_BASE_URL,
+                timestamp: new Date().toISOString()
+            });
+        });
+    </script>
+</body>
+</html>

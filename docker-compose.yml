@@ -1,106 +1,203 @@
+# Banking System - Full Stack Docker Compose Configuration
+# This file orchestrates all services for local development
+# For production deployments, see infrastructure/ or eks-infrastructure/
+
+version: '3.8'
+
 services:
+  # Database Service
   mysql:
     image: mysql:8.0
     container_name: banking-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: banking_system
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-banking_system}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-password}"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
+  # Service Discovery (Eureka Server)
   service-discovery:
     build: ./microservices/service-discovery
     container_name: service-discovery
     ports:
-      - "8761:8761"
+      - "${EUREKA_PORT:-8761}:8761"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
 
+  # Account Management Service
   account-service:
     build: ./microservices/account-service
     container_name: account-service
     environment:
-      DB_USERNAME: root
-      DB_PASSWORD: password
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
-      - mysql
-      - service-discovery
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
     ports:
-      - "8081:8081"
+      - "${ACCOUNT_SERVICE_PORT:-8081}:8081"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
+  # Transaction Processing Service
   transaction-service:
     build: ./microservices/transaction-service
     container_name: transaction-service
     environment:
-      DB_USERNAME: root
-      DB_PASSWORD: password
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
-      - mysql
-      - service-discovery
-      - account-service
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
     ports:
-      - "8082:8082"
+      - "${TRANSACTION_SERVICE_PORT:-8082}:8082"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
+  # Notification Service
   notification-service:
     build: ./microservices/notification-service
     container_name: notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
-      - service-discovery
+      service-discovery:
+        condition: service_started
     ports:
-      - "8083:8083"
+      - "${NOTIFICATION_SERVICE_PORT:-8083}:8083"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
+  # Audit Logging Service
   audit-service:
     build: ./microservices/audit-service
     container_name: audit-service
     environment:
-      DB_USERNAME: root
-      DB_PASSWORD: password
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
-      - mysql
-      - service-discovery
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
     ports:
-      - "8084:8084"
+      - "${AUDIT_SERVICE_PORT:-8084}:8084"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
+  # API Gateway (Single Entry Point)
   api-gateway:
     build: ./microservices/api-gateway
     container_name: api-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     depends_on:
-      - service-discovery
-      - account-service
-      - transaction-service
-      - audit-service
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
+      transaction-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
     ports:
-      - "8080:8080"
+      - "${API_GATEWAY_PORT:-8080}:8080"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
 
+  # React Web Application (Frontend)
   webapp:
     build: ./webapp
     container_name: banking-webapp
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_started
     ports:
-      - "3000:3000"
+      - "${WEBAPP_PORT:-3000}:3000"
     networks:
       - banking-network
     environment:
-      - REACT_APP_API_URL=http://localhost:8080
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8080}
+      - NODE_ENV=${NODE_ENV:-development}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
 
+# Persistent Data Volumes
 volumes:
   mysql_data:
+    driver: local
+    name: banking_mysql_data
 
+# Internal Network for Service Communication
 networks:
   banking-network:
     driver: bridge
+    name: banking_network

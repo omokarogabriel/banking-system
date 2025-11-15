@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { bankingAPI } from '../services/api';
+import axios from 'axios';
 
 const Transaction = ({ type }) => {
   const [formData, setFormData] = useState({
@@ -11,14 +12,12 @@ const Transaction = ({ type }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const transactionData = {
-        accountNumber: formData.accountNumber,
-        amount: parseFloat(formData.amount)
-      };
+      const amount = parseFloat(formData.amount);
+      const operation = type === 'deposit' ? 'CREDIT' : 'DEBIT';
       
-      const result = type === 'deposit' 
-        ? await bankingAPI.deposit(transactionData)
-        : await bankingAPI.withdraw(transactionData);
+      const result = await axios.put(
+        `/api/accounts/${formData.accountNumber}/balance?amount=${amount}&operation=${operation}`
+      );
       
       setResponse(result.data);
     } catch (error) {

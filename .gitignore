@@ -60,6 +60,20 @@ logs/
 # Environment variables
 .env
 .env.production
+.env.local
+.env.development
+.env.test
+
+# Secrets and sensitive files
+secrets/*.txt
+!secrets/README.md
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+keystore
+truststore
 
 # AWS
 .aws/

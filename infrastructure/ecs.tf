@@ -130,6 +130,124 @@ resource "aws_ecs_task_definition" "account_service" {
   ])
 }
 
+resource "aws_ecs_task_definition" "transaction_service" {
+  family                   = "transaction-service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name  = "transaction-service"
+      image = "${aws_ecr_repository.transaction_service.repository_url}:latest"
+      portMappings = [
+        {
+          containerPort = 8082
+          protocol      = "tcp"
+        }
+      ]
+      environment = [
+        {
+          name  = "DB_USERNAME"
+          value = "root"
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.banking_db.endpoint
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.banking_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "transaction-service"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_task_definition" "notification_service" {
+  family                   = "notification-service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name  = "notification-service"
+      image = "${aws_ecr_repository.notification_service.repository_url}:latest"
+      portMappings = [
+        {
+          containerPort = 8083
+          protocol      = "tcp"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.banking_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "notification-service"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_task_definition" "audit_service" {
+  family                   = "audit-service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name  = "audit-service"
+      image = "${aws_ecr_repository.audit_service.repository_url}:latest"
+      portMappings = [
+        {
+          containerPort = 8084
+          protocol      = "tcp"
+        }
+      ]
+      environment = [
+        {
+          name  = "DB_USERNAME"
+          value = "root"
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.banking_db.endpoint
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.banking_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "audit-service"
+        }
+      }
+    }
+  ])
+}
+
 resource "aws_ecs_task_definition" "api_gateway" {
   family                   = "api-gateway"
   network_mode             = "awsvpc"
@@ -214,6 +332,51 @@ resource "aws_ecs_service" "account_service" {
   name            = "account-service"
   cluster         = aws_ecs_cluster.banking_cluster.id
   task_definition = aws_ecs_task_definition.account_service.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
+    security_groups = [aws_security_group.ecs_sg.id]
+  }
+
+  depends_on = [aws_ecs_service.service_discovery]
+}
+
+resource "aws_ecs_service" "transaction_service" {
+  name            = "transaction-service"
+  cluster         = aws_ecs_cluster.banking_cluster.id
+  task_definition = aws_ecs_task_definition.transaction_service.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
+    security_groups = [aws_security_group.ecs_sg.id]
+  }
+
+  depends_on = [aws_ecs_service.account_service]
+}
+
+resource "aws_ecs_service" "notification_service" {
+  name            = "notification-service"
+  cluster         = aws_ecs_cluster.banking_cluster.id
+  task_definition = aws_ecs_task_definition.notification_service.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.private_subnet_1.id, aws_subnet.private_subnet_2.id]
+    security_groups = [aws_security_group.ecs_sg.id]
+  }
+
+  depends_on = [aws_ecs_service.service_discovery]
+}
+
+resource "aws_ecs_service" "audit_service" {
+  name            = "audit-service"
+  cluster         = aws_ecs_cluster.banking_cluster.id
+  task_definition = aws_ecs_task_definition.audit_service.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 

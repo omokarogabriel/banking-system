@@ -13,6 +13,13 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    restart: unless-stopped
 
   service-discovery:
     build: ./service-discovery
@@ -21,6 +28,7 @@ services:
       - "8761:8761"
     networks:
       - banking-network
+    restart: unless-stopped
 
   account-service:
     build: ./account-service
@@ -29,12 +37,15 @@ services:
       DB_USERNAME: root
       DB_PASSWORD: password
     depends_on:
-      - mysql
-      - service-discovery
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
     ports:
       - "8081:8081"
     networks:
       - banking-network
+    restart: unless-stopped
 
   transaction-service:
     build: ./transaction-service
@@ -43,23 +54,29 @@ services:
       DB_USERNAME: root
       DB_PASSWORD: password
     depends_on:
-      - mysql
-      - service-discovery
-      - account-service
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
     ports:
       - "8082:8082"
     networks:
       - banking-network
+    restart: unless-stopped
 
   notification-service:
     build: ./notification-service
     container_name: notification-service
     depends_on:
-      - service-discovery
+      service-discovery:
+        condition: service_started
     ports:
       - "8083:8083"
     networks:
       - banking-network
+    restart: unless-stopped
 
   audit-service:
     build: ./audit-service
@@ -68,25 +85,33 @@ services:
       DB_USERNAME: root
       DB_PASSWORD: password
     depends_on:
-      - mysql
-      - service-discovery
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
     ports:
       - "8084:8084"
     networks:
       - banking-network
+    restart: unless-stopped
 
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
     depends_on:
-      - service-discovery
-      - account-service
-      - transaction-service
-      - audit-service
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
+      transaction-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
     ports:
       - "8080:8080"
     networks:
       - banking-network
+    restart: unless-stopped
 
 volumes:
   mysql_data:

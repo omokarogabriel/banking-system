@@ -1,0 +1,173 @@
+# Banking System - Secure Docker Compose Configuration
+# This file uses Docker secrets for enhanced security
+# Secrets are stored in the ./secrets/ directory
+# For production, use external secret management (AWS Secrets Manager, Vault, etc.)
+
+version: '3.8'
+
+services:
+  # Database Service (with Docker Secrets)
+  mysql:
+    image: mysql:8.0
+    container_name: banking-mysql-secure
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-banking_system}
+      MYSQL_USER_FILE: /run/secrets/mysql_user
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - banking-network
+    secrets:
+      - mysql_root_password
+      - mysql_user
+      - mysql_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  service-discovery:
+    build: ./microservices/service-discovery
+    container_name: service-discovery-secure
+    ports:
+      - "8761:8761"
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  account-service:
+    build: ./microservices/account-service
+    container_name: account-service-secure
+    environment:
+      DB_USERNAME_FILE: /run/secrets/mysql_user
+      DB_PASSWORD_FILE: /run/secrets/mysql_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    networks:
+      - banking-network
+    secrets:
+      - mysql_user
+      - mysql_password
+    restart: unless-stopped
+
+  transaction-service:
+    build: ./microservices/transaction-service
+    container_name: transaction-service-secure
+    environment:
+      DB_USERNAME_FILE: /run/secrets/mysql_user
+      DB_PASSWORD_FILE: /run/secrets/mysql_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    networks:
+      - banking-network
+    secrets:
+      - mysql_user
+      - mysql_password
+    restart: unless-stopped
+
+  notification-service:
+    build: ./microservices/notification-service
+    container_name: notification-service-secure
+    depends_on:
+      service-discovery:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  audit-service:
+    build: ./microservices/audit-service
+    container_name: audit-service-secure
+    environment:
+      DB_USERNAME_FILE: /run/secrets/mysql_user
+      DB_PASSWORD_FILE: /run/secrets/mysql_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+      service-discovery:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    networks:
+      - banking-network
+    secrets:
+      - mysql_user
+      - mysql_password
+    restart: unless-stopped
+
+  api-gateway:
+    build: ./microservices/api-gateway
+    container_name: api-gateway-secure
+    depends_on:
+      service-discovery:
+        condition: service_started
+      account-service:
+        condition: service_started
+      transaction-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  webapp:
+    build: ./webapp
+    container_name: banking-webapp-secure
+    depends_on:
+      api-gateway:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    networks:
+      - banking-network
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+    restart: unless-stopped
+
+# Docker Secrets Configuration
+# Secrets are loaded from files in the ./secrets/ directory
+# IMPORTANT: Never commit actual secrets to version control
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password.txt
+  mysql_user:
+    file: ./secrets/mysql_user.txt
+  mysql_password:
+    file: ./secrets/mysql_password.txt
+
+# Persistent Data Volumes
+volumes:
+  mysql_data:
+    driver: local
+    name: banking_mysql_data_secure
+
+# Internal Network for Service Communication
+networks:
+  banking-network:
+    driver: bridge
+    name: banking_network_secure

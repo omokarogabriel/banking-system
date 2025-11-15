@@ -19,7 +19,16 @@ const CreateAccount = () => {
       const result = await bankingAPI.createAccount(formData);
       setResponse(result.data);
     } catch (error) {
-      setResponse({ responseMessage: 'Error creating account' });
+      console.error('Account creation error:', error);
+      let errorMsg = 'Error creating account';
+      if (error.response?.data?.responseMessage) {
+        errorMsg = error.response.data.responseMessage;
+      } else if (error.response?.status === 400) {
+        errorMsg = 'Validation failed. Please check phone number format (+1234567890 or 08130262842) and ensure email is unique.';
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      setResponse({ responseMessage: errorMsg });
     }
   };
 
@@ -50,9 +59,11 @@ const CreateAccount = () => {
         />
         <input
           type="tel"
-          placeholder="Phone Number"
+          placeholder="Phone Number (e.g., +1234567890 or 08130262842)"
           value={formData.phoneNumber}
           onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
+          pattern="^(\+?[1-9]\d{1,14}|0\d{10})$"
+          title="Phone number formats: +1234567890, 1234567890, or 08130262842"
           required
         />
         <input

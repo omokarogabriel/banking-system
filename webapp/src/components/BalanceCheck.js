@@ -8,7 +8,7 @@ const BalanceCheck = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const result = await bankingAPI.getBalance(accountNumber);
+      const result = await bankingAPI.getAccount(accountNumber);
       setResponse(result.data);
     } catch (error) {
       setResponse({ responseMessage: 'Error fetching balance' });
@@ -33,7 +33,7 @@ const BalanceCheck = () => {
           <p>{response.responseMessage}</p>
           {response.accountInfo && (
             <div>
-              <p>Account Holder: {response.accountInfo.accountHolderName}</p>
+              <p>Account Holder: {response.accountInfo.accountName}</p>
               <p>Balance: ${response.accountInfo.accountBalance}</p>
             </div>
           )}

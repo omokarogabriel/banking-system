@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Year;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,7 +47,7 @@ public class AccountService {
                     .build();
 
             Account savedAccount = accountRepository.save(account);
-            log.info("Account created successfully for email: {}", request.getEmail());
+            log.info("Account created successfully with account number: {}", savedAccount.getAccountNumber());
 
             return AccountResponse.builder()
                     .responseCode("200")
@@ -61,7 +62,7 @@ public class AccountService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error creating account for email: {}", request.getEmail(), e);
+            log.error("Error creating account: {}", e.getMessage());
             return AccountResponse.builder()
                     .responseCode("500")
                     .responseMessage("Internal server error occurred")
@@ -88,7 +89,70 @@ public class AccountService {
                             .responseMessage("Account not found")
                             .build());
         } catch (Exception e) {
-            log.error("Error retrieving account: {}", accountNumber, e);
+            log.error("Error retrieving account: {}", e.getMessage());
+            return AccountResponse.builder()
+                    .responseCode("500")
+                    .responseMessage("Internal server error occurred")
+                    .build();
+        }
+    }
+
+    @Transactional
+    public AccountResponse updateBalance(String accountNumber, BigDecimal amount, String operation) {
+        try {
+            Optional<Account> accountOpt = accountRepository.findByAccountNumber(accountNumber);
+            if (accountOpt.isEmpty()) {
+                return AccountResponse.builder()
+                        .responseCode("404")
+                        .responseMessage("Account not found")
+                        .build();
+            }
+
+            Account account = accountOpt.get();
+            BigDecimal currentBalance = account.getAccountBalance();
+            BigDecimal newBalance;
+
+            switch (operation.toUpperCase()) {
+                case "CREDIT", "DEPOSIT" -> {
+                    newBalance = currentBalance.add(amount);
+                }
+                case "DEBIT", "WITHDRAW" -> {
+                    if (currentBalance.compareTo(amount) < 0) {
+                        return AccountResponse.builder()
+                                .responseCode("400")
+                                .responseMessage("Insufficient balance")
+                                .build();
+                    }
+                    newBalance = currentBalance.subtract(amount);
+                }
+                default -> {
+                    return AccountResponse.builder()
+                            .responseCode("400")
+                            .responseMessage("Invalid operation. Use CREDIT or DEBIT")
+                            .build();
+                }
+            }
+
+            account.setAccountBalance(newBalance);
+            Account updatedAccount = accountRepository.save(account);
+            
+            log.info("Balance updated for account: {}, operation: {}, amount: {}", 
+                    accountNumber, operation, amount);
+
+            return AccountResponse.builder()
+                    .responseCode("200")
+                    .responseMessage("Balance updated successfully")
+                    .accountInfo(AccountResponse.AccountInfo.builder()
+                            .accountName(String.join(" ", updatedAccount.getFirstName(), 
+                                    updatedAccount.getLastName(), 
+                                    updatedAccount.getOtherName() != null ? updatedAccount.getOtherName() : ""))
+                            .accountNumber(updatedAccount.getAccountNumber())
+                            .accountBalance(updatedAccount.getAccountBalance())
+                            .build())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error updating balance: {}", e.getMessage());
             return AccountResponse.builder()
                     .responseCode("500")
                     .responseMessage("Internal server error occurred")

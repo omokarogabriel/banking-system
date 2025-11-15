@@ -13,3 +13,6 @@ eureka:
 spring:
   application:
     name: service-discovery
+  cloud:
+    compatibility-verifier:
+      enabled: false

@@ -30,6 +30,20 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
+# SSL Certificate
+resource "aws_acm_certificate" "banking_cert" {
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "banking-ssl-cert"
+  }
+}
+
 # Application Load Balancer
 resource "aws_lb" "banking_alb" {
   name               = "banking-alb"
@@ -37,6 +51,10 @@ resource "aws_lb" "banking_alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
+
+  # Security enhancements
+  drop_invalid_header_fields = true
+  enable_deletion_protection = false
 
   tags = {
     Name = "banking-alb"
@@ -80,11 +98,30 @@ resource "aws_lb_target_group" "api_gateway_tg" {
   }
 }
 
-# ALB Listeners
-resource "aws_lb_listener" "webapp_listener" {
+# HTTP Listener (redirect to HTTPS)
+resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.banking_alb.arn
   port              = "80"
   protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# HTTPS Listener
+resource "aws_lb_listener" "https_listener" {
+  load_balancer_arn = aws_lb.banking_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = aws_acm_certificate.banking_cert.arn
 
   default_action {
     type             = "forward"
@@ -93,7 +130,7 @@ resource "aws_lb_listener" "webapp_listener" {
 }
 
 resource "aws_lb_listener_rule" "api_rule" {
-  listener_arn = aws_lb_listener.webapp_listener.arn
+  listener_arn = aws_lb_listener.https_listener.arn
   priority     = 100
 
   action {

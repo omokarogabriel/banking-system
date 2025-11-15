@@ -1,0 +1,36 @@
+# Banking System - ECS Infrastructure Configuration
+# Copy this file to terraform.tfvars and update with your values
+
+# AWS Configuration
+aws_region = "us-east-1"
+environment = "prod"
+project_name = "banking-system"
+
+# Database Configuration
+db_username = "banking_user"
+db_password = "your_secure_password_here"  # Change this!
+db_instance_class = "db.t3.micro"
+enable_deletion_protection = true
+backup_retention_period = 7
+multi_az = true
+
+# ECS Configuration
+ecs_task_cpu = 256
+ecs_task_memory = 512
+desired_count = 2
+
+# Domain Configuration
+domain_name = "banking.yourdomain.com"
+
+# Logging Configuration
+enable_logging = true
+log_retention_days = 30
+
+# Resource Tags
+tags = {
+  Project     = "Banking System"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+  Owner       = "Your Name"
+  CostCenter  = "Engineering"
+}

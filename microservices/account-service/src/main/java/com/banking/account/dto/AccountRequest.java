@@ -27,7 +27,7 @@ public class AccountRequest {
     @NotBlank(message = "Email is required")
     private String email;
 
-    @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Invalid phone number format")
+    @Pattern(regexp = "^(\\+?[1-9]\\d{1,14}|0\\d{10})$", message = "Invalid phone number format")
     private String phoneNumber;
 
     private String alternativePhoneNumber;

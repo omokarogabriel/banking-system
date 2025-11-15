@@ -18,9 +18,10 @@ public class NotificationService {
             switch (request.getType()) {
                 case EMAIL -> sendEmail(request);
                 case SMS -> sendSMS(request);
+                default -> log.warn("Unknown notification type: {}", request.getType());
             }
         } catch (Exception e) {
-            log.error("Failed to send notification", e);
+            log.error("Failed to send notification: {}", e.getMessage());
         }
     }
 

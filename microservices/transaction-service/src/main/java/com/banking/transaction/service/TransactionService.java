@@ -44,6 +44,20 @@ public class TransactionService {
                 return buildErrorResponse("400", "Insufficient balance");
             }
 
+            // Update balances via Account Service
+            try {
+                // Debit source account
+                accountServiceClient.updateBalance(request.getSourceAccountNumber(), 
+                    request.getAmount(), "DEBIT");
+                
+                // Credit destination account
+                accountServiceClient.updateBalance(request.getDestinationAccountNumber(), 
+                    request.getAmount(), "CREDIT");
+            } catch (Exception e) {
+                log.error("Failed to update account balances: {}", e.getMessage());
+                return buildErrorResponse("500", "Failed to process transfer");
+            }
+
             // Create transaction record
             Transaction transaction = Transaction.builder()
                     .transactionReference(generateTransactionReference())
@@ -65,7 +79,7 @@ public class TransactionService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error processing transfer", e);
+            log.error("Error processing transfer: {}", e.getMessage());
             return buildErrorResponse("500", "Internal server error occurred");
         }
     }
@@ -83,7 +97,7 @@ public class TransactionService {
     private String generateTransactionReference() {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         int randomNumber = secureRandom.nextInt(10000);
-        return "TXN" + timestamp + String.format("%04d", randomNumber);
+        return "TXN" + timestamp + String.format(java.util.Locale.ROOT, "%04d", randomNumber);
     }
 
     private TransactionResponse buildErrorResponse(String code, String message) {

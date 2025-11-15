@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequestMapping("/api/accounts")
 @RequiredArgsConstructor
@@ -27,6 +29,19 @@ public class AccountController {
         AccountResponse response = accountService.getAccountByNumber(accountNumber);
         HttpStatus status = "200".equals(response.getResponseCode()) ? HttpStatus.OK : 
                            "404".equals(response.getResponseCode()) ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+        return ResponseEntity.status(status).body(response);
+    }
+
+    @PutMapping("/{accountNumber}/balance")
+    public ResponseEntity<AccountResponse> updateBalance(
+            @PathVariable String accountNumber, 
+            @RequestParam BigDecimal amount,
+            @RequestParam String operation) {
+        AccountResponse response = accountService.updateBalance(accountNumber, amount, operation);
+        HttpStatus status = "200".equals(response.getResponseCode()) ? HttpStatus.OK : 
+                           "404".equals(response.getResponseCode()) ? HttpStatus.NOT_FOUND : 
+                           "400".equals(response.getResponseCode()) ? HttpStatus.BAD_REQUEST : 
+                           HttpStatus.INTERNAL_SERVER_ERROR;
         return ResponseEntity.status(status).body(response);
     }
 }
